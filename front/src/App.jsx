@@ -1,7 +1,7 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-//import { ReservasProvider } from './context/ReservasContext';
+import { ReservasProvider } from './context/ReservasContext';
 
 // Páginas principales
 import Home from './pages/Home';
@@ -9,8 +9,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Reservas from './pages/Reservas';
-//import Perfil from './pages/Perfil';
-//import NotFound from './pages/NotFound';
+import Perfil from './pages/Perfil';
+import NotFound from './pages/NotFound';
 
 // Páginas de Admin
 //import AdminHome from './pages/Admin/AdminHome';
@@ -24,8 +24,8 @@ import Reservas from './pages/Reservas';
 
 // Componentes de protección de rutas
 import ProtectedRoute from './component/common/ProtectedRoute';
-import AdminRoute from './component/common/AdminRoute';
-import PersonalRoute from './component/common/PersonalRoute';
+import { AdminRoute } from './component/common/AdminRoute';
+import { PersonalRoute } from './component/common/PersonalRoute';
 
 // Layout principal
 import Layout from './component/common/Layout';
@@ -76,7 +76,7 @@ function App() {
                 path="/admin" 
                 element={
                   <AdminRoute>
-                    <Layout><AdminHome /></Layout>
+                    <Layout></Layout>
                   </AdminRoute>
                 } 
               />
@@ -84,7 +84,7 @@ function App() {
                 path="/admin/usuarios" 
                 element={
                   <AdminRoute>
-                    <Layout><Usuarios /></Layout>
+                    <Layout></Layout>
                   </AdminRoute>
                 } 
               />
@@ -92,7 +92,7 @@ function App() {
                 path="/admin/reservas" 
                 element={
                   <AdminRoute>
-                    <Layout><ReservasAdmin /></Layout>
+                    <Layout></Layout>
                   </AdminRoute>
                 } 
               />
@@ -100,7 +100,7 @@ function App() {
                 path="/admin/inventario" 
                 element={
                   <AdminRoute>
-                    <Layout><Inventario /></Layout>
+                    <Layout></Layout>
                   </AdminRoute>
                 } 
               />
@@ -110,7 +110,7 @@ function App() {
                 path="/personal" 
                 element={
                   <PersonalRoute>
-                    <Layout><PersonalHome /></Layout>
+                    <Layout></Layout>
                   </PersonalRoute>
                 } 
               />
@@ -118,7 +118,7 @@ function App() {
                 path="/personal/reservas" 
                 element={
                   <PersonalRoute>
-                    <Layout><VerReservasPersonal /></Layout>
+                    <Layout></Layout>
                   </PersonalRoute>
                 } 
               />
