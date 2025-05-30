@@ -1,4 +1,3 @@
-// src/components/reservas/CrearReserva.jsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL, PRECIOS, RESTRICCIONES, HORARIOS, SERVICIOS_ADICIONALES } from '../../utils/constants';
@@ -7,17 +6,17 @@ import CalendarioReservas from './CalendarioReservas';
 import ServiciosAdicionales from '../servicios/ServiciosAdicionales';
 
 const CrearReserva = ({ onReservaCreada }) => {
-  const { authenticatedRequest } = useAuth();
+  const { authenticatedRequest, user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
-    tipo: 'privada', // 'privada' o 'general'
+    tipo: 1,
     fechaInicio: '',
     fechaFin: '',
-    horario: 'diurno', // 'diurno' o 'nocturno'
-    jornada: 'completa', // 'completa', 'manana', 'tarde', 'noche'
+    horario: 'diurno',
+    jornada: 'completa',
     numeroPersonas: 10,
     serviciosAdicionales: [],
     observaciones: ''
@@ -31,7 +30,6 @@ const CrearReserva = ({ onReservaCreada }) => {
     diasReserva: 1
   });
 
-  // Calcular precios automáticamente
   useEffect(() => {
     calcularPrecios();
   }, [formData]);
@@ -39,31 +37,26 @@ const CrearReserva = ({ onReservaCreada }) => {
   const calcularPrecios = () => {
     let precioBase = 0;
     let cargoMinimo = 0;
-    
-    // Calcular días entre fechas
-    const dias = formData.fechaFin && formData.fechaInicio 
+
+    const dias = formData.fechaFin && formData.fechaInicio
       ? Math.ceil((new Date(formData.fechaFin) - new Date(formData.fechaInicio)) / (1000 * 60 * 60 * 24)) + 1
       : 1;
 
     if (formData.tipo === 'privada') {
-      // Determinar si es fin de semana
       const esFindeSemana = esFinDeSemana(formData.fechaInicio);
       const precioPersona = esFindeSemana ? PRECIOS.RESERVA_PRIVADA_FINDE : PRECIOS.RESERVA_PRIVADA_SEMANA;
       const minimoPersonas = esFindeSemana ? RESTRICCIONES.MIN_PERSONAS_PRIVADA_FINDE : RESTRICCIONES.MIN_PERSONAS_PRIVADA_SEMANA;
-      
+
       precioBase = formData.numeroPersonas * precioPersona * dias;
-      
-      // Cargo por no alcanzar mínimo
+
       if (formData.numeroPersonas < minimoPersonas) {
         cargoMinimo = PRECIOS.CARGO_MINIMO_PERSONAS;
       }
     } else {
-      // Reserva general
       const precioPersona = formData.horario === 'nocturno' ? PRECIOS.ENTRADA_NOCTURNA : PRECIOS.ENTRADA_DIURNA;
       precioBase = formData.numeroPersonas * precioPersona * dias;
     }
 
-    // Calcular servicios adicionales
     const serviciosTotal = formData.serviciosAdicionales.reduce((total, servicio) => {
       const precio = SERVICIOS_ADICIONALES[servicio.toUpperCase()]?.precio || 0;
       return total + (precio * dias);
@@ -71,26 +64,19 @@ const CrearReserva = ({ onReservaCreada }) => {
 
     const total = precioBase + serviciosTotal + cargoMinimo;
 
-    setCalculo({
-      precioBase,
-      serviciosTotal,
-      cargoMinimo,
-      total,
-      diasReserva: dias
-    });
+    setCalculo({ precioBase, serviciosTotal, cargoMinimo, total, diasReserva: dias });
   };
 
   const esFinDeSemana = (fecha) => {
     if (!fecha) return false;
     const dia = new Date(fecha).getDay();
-    return dia === 0 || dia === 6; // Domingo o Sábado
+    return dia === 0 || dia === 6;
   };
 
+
+
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
     setError(null);
   };
 
@@ -99,53 +85,74 @@ const CrearReserva = ({ onReservaCreada }) => {
       setError('Debe seleccionar una fecha de inicio');
       return false;
     }
-
     if (formData.numeroPersonas < 1) {
       setError('Debe especificar al menos 1 persona');
       return false;
     }
-
     if (formData.numeroPersonas > RESTRICCIONES.AFORO_MAXIMO) {
       setError(`El aforo máximo es de ${RESTRICCIONES.AFORO_MAXIMO} personas`);
       return false;
     }
-
     if (formData.tipo === 'privada') {
       const esFindeSemana = esFinDeSemana(formData.fechaInicio);
       const minimoPersonas = esFindeSemana ? RESTRICCIONES.MIN_PERSONAS_PRIVADA_FINDE : RESTRICCIONES.MIN_PERSONAS_PRIVADA_SEMANA;
-      
       if (formData.numeroPersonas < minimoPersonas && calculo.cargoMinimo === 0) {
         setError(`Las reservas privadas requieren mínimo ${minimoPersonas} personas ${esFindeSemana ? 'en fin de semana' : 'entre semana'}`);
         return false;
       }
     }
-
-    // Validar fecha no sea en el pasado
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const fechaSeleccionada = new Date(formData.fechaInicio);
-    
     if (fechaSeleccionada < hoy) {
       setError('No se pueden hacer reservas para fechas pasadas');
       return false;
     }
-
     return true;
   };
 
+  const esPersonal = user?.rol === 'personal';
+
   const handleSubmit = async () => {
     if (!validarFormulario()) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      const reservaData = {
-        ...formData,
-        fechaFin: formData.fechaFin || formData.fechaInicio,
-        precioTotal: calculo.total,
-        estado: 'pendiente'
+      const tipoReservaMap = {
+        general: 1,
+        privada: 2
       };
+
+      const reservaData = {
+        tipoReservaId: typeof formData.tipo === 'string'
+          ? tipoReservaMap[formData.tipo]
+          : formData.tipo,
+        fechaInicio: formData.fechaInicio,
+        fechaFin: formData.fechaFin || formData.fechaInicio,
+
+        horarioInicio: formData.horario === 'nocturno' ? '18:00' : '09:00',
+        horarioFin:    formData.horario === 'nocturno' ? '23:00' : '12:00', 
+
+        personas: formData.numeroPersonas,
+        servicios: formData.serviciosAdicionales || [],
+
+        ...(user?.documento && { documento: user.documento }),
+        ...(user?.nombre && { clienteNombre: user.nombre }),
+        ...(user?.email && { clienteEmail: user.email }),
+
+        precioBase: calculo.precioBase,
+        cargoAdicional: calculo.cargoMinimo,
+        precioTotal: calculo.total,
+
+        estado: 'pendiente',
+        clienteId: user?.id
+      };
+
+
+
+
+      console.log('Reserva enviada:', JSON.stringify(reservaData, null, 2));
 
       const response = await authenticatedRequest(`${API_BASE_URL}/api/reservas`, {
         method: 'POST',
@@ -159,7 +166,7 @@ const CrearReserva = ({ onReservaCreada }) => {
 
       const nuevaReserva = await response.json();
       onReservaCreada(nuevaReserva);
-      
+
     } catch (error) {
       setError(error.message);
     } finally {

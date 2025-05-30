@@ -1,6 +1,8 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
 import { USER_ROLES, API_BASE_URL } from '../utils/constants';
+import { jwtDecode } from 'jwt-decode'; 
+
 
 const AuthContext = createContext();
 
@@ -20,7 +22,7 @@ export const AuthProvider = ({ children }) => {
 
   // Verificar autenticación al cargar la app
   useEffect(() => {
-    const initializeAuth = async () => {
+    const initializeAuth = () => {
       const savedToken = localStorage.getItem('authToken');
       const savedUser = localStorage.getItem('authUser');
 
@@ -54,19 +56,23 @@ export const AuthProvider = ({ children }) => {
       });
 
       const data = await response.json();
+      console.log('Token recibido:', data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Error en el login');
       }
 
-      // Guardar token y usuario
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('authUser', JSON.stringify(data.user));
-      
-      setToken(data.token);
-      setUser(data.user);
+      // ✅ Decodificar token para obtener usuario
+      const decodedUser = jwtDecode(data.token);
+      console.log('Usuario decodificado:', decodedUser);
 
-      return { success: true, user: data.user };
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('authUser', JSON.stringify(decodedUser));
+
+      setToken(data.token);
+      setUser(decodedUser);
+
+      return { success: true, user: decodedUser };
     } catch (error) {
       setError(error.message);
       return { success: false, error: error.message };
@@ -188,9 +194,15 @@ export const AuthProvider = ({ children }) => {
       },
     };
 
+    if (options.body) {
+      try {
+        console.log('Body enviado a backend:', JSON.parse(options.body));
+      } catch {
+        console.log('Body (no parseable):', options.body);
+      }
+    }
     const response = await fetch(url, config);
-    
-    // Si el token expiró, hacer logout
+
     if (response.status === 401) {
       logout();
       throw new Error('Sesión expirada');
@@ -210,7 +222,7 @@ export const AuthProvider = ({ children }) => {
     forgotPassword,
     resetPassword,
     isAdmin,
-    isPersonal, 
+    isPersonal,
     isCliente,
     isAuthenticated,
     authenticatedRequest,
