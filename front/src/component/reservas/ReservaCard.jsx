@@ -2,18 +2,18 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { SERVICIOS_ADICIONALES } from '../../utils/constants';
 
 const ESTADO_COLOR = {
-  pendiente: 'bg-warning-100 text-warning-800 border-warning-200',
-  confirmada: 'bg-success-100 text-success-800 border-success-200',
-  cancelacion_pendiente: 'bg-error-100 text-error-800 border-error-200',
-  cancelada: 'bg-gray-100 text-gray-800 border-gray-200',
-  completada: 'bg-primary-100 text-primary-800 border-primary-200',
+  pendiente:           'bg-warning-100 text-warning-800 border-warning-200',
+  confirmada:          'bg-success-100 text-success-800 border-success-200',
+  cancelacion_pendiente:'bg-error-100 text-error-800 border-error-200',
+  cancelada:           'bg-gray-100 text-gray-800 border-gray-200',
+  completada:          'bg-primary-100 text-primary-800 border-primary-200',
 };
 const ESTADO_TEXTO = {
-  pendiente: 'Pendiente de Pago',
-  confirmada: 'Confirmada',
-  cancelacion_pendiente: 'Cancelación Pendiente',
-  cancelada: 'Cancelada',
-  completada: 'Completada',
+  pendiente:           'Pendiente de Pago',
+  confirmada:          'Confirmada',
+  cancelacion_pendiente:'Cancelación Pendiente',
+  cancelada:           'Cancelada',
+  completada:          'Completada',
 };
 
 const formatDate = iso =>
@@ -45,25 +45,34 @@ const ReservaCard = ({
   loading
 }) => {
   const {
-    id, tipo = {},
-    fecha_inicio, fecha_fin,
-    personas, precio_total,
-    servicios = [], servicios_total, cargo_minimo,
-    observaciones, created_at,
+    id,
+    tipo = {},
+    fecha_inicio,
+    fecha_fin,
+    personas,
+    precio_total,
+    servicios = [],
+    servicios_total,
+    cargo_minimo,
+    observaciones,
+    created_at,
     estado: estadoRaw,
-    horario_inicio, horario_fin
+    horario_inicio,
+    horario_fin
   } = reserva;
 
-  const fechaInicio = fecha_inicio;
-  const fechaFin    = fecha_fin;
-  const origPeople  = personas;
-  const precioTotal = parseFloat(precio_total);
+  // Parseo todos los valores monetarios a números:
+  const precioTotal    = parseFloat(precio_total)    || 0;
+  const serviciosTotal = parseFloat(servicios_total) || 0;
+  const cargoMinimoNum = parseFloat(cargo_minimo)    || 0;
+
+  const fechaInicio    = fecha_inicio;
+  const fechaFin       = fecha_fin;
+  const origPeople     = personas;
   const serviciosAdicionales = servicios.map(s => s.nombre);
-  const createdAt   = created_at;
-  // Reutilizo el mapeo de estado
-  const estado      = isPaid ? 'confirmada' : estadoRaw.toLowerCase();
-  // Combino horarios si lo deseas:
-  const horario     = `${horario_inicio.slice(0,5)} - ${horario_fin.slice(0,5)}`;
+  const createdAt      = created_at;
+  const estado         = isPaid ? 'confirmada' : estadoRaw.toLowerCase();
+  const horario        = `${horario_inicio.slice(0,5)} - ${horario_fin.slice(0,5)}`;
 
   const [showDetails, setShowDetails]     = useState(false);
   const [editingPeople, setEditingPeople] = useState(false);
@@ -208,10 +217,21 @@ const ReservaCard = ({
             </div>
             <div>
               <h4 className="font-medium mb-2">Desglose de precios</h4>
-              <p><strong>Base:</strong> ${(precioTotal - servicios_total - cargo_minimo).toLocaleString()}</p>
-              {servicios_total > 0 && <p><strong>Servicios:</strong> ${servicios_total.toLocaleString()}</p>}
-              {cargo_minimo > 0  && <p><strong>Cargo mínimo:</strong> ${cargo_minimo.toLocaleString()}</p>}
-              <p className="mt-2 font-semibold"><strong>Total:</strong> ${precioTotal.toLocaleString()}</p>
+              {serviciosTotal > 0 && (
+                <p>
+                  <strong>Servicios:</strong>{' '}
+                  ${serviciosTotal.toLocaleString()}
+                </p>
+              )}
+              {cargoMinimoNum > 0 && (
+                <p>
+                  <strong>Cargo mínimo:</strong>{' '}
+                  ${cargoMinimoNum.toLocaleString()}
+                </p>
+              )}
+              <p className="mt-2 font-semibold">
+                <strong>Total:</strong> ${precioTotal.toLocaleString()}
+              </p>
             </div>
           </div>
         )}

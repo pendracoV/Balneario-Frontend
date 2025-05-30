@@ -13,43 +13,53 @@ const Dashboard = () => {
     proximasReservas: []
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Obtener estadísticas según el rol del usuario
+
+        // Admin: estadísticas generales
         if (isAdmin()) {
-          // Admin ve estadísticas generales
-          const response = await authenticatedRequest(`${API_BASE_URL}/api/reservas`);
-          const reservas = await response.json();
-          
+          const res = await authenticatedRequest(`${API_BASE_URL}/api/reservas`);
+          const reservas = await res.json();
+
           setStats({
             totalReservas: reservas.length,
             reservasHoy: reservas.filter(r => {
               const hoy = new Date().toDateString();
-              const fechaReserva = new Date(r.fechaInicio).toDateString();
-              return fechaReserva === hoy;
+              return new Date(r.fecha_inicio).toDateString() === hoy;
             }).length,
             proximasReservas: reservas.slice(0, 5)
           });
         } else {
-          // Cliente ve sus propias reservas
-          const response = await authenticatedRequest(`${API_BASE_URL}/api/reservas`);
-          const todasReservas = await response.json();
-          const misReservas = todasReservas.filter(r => r.usuarioId === user.id);
-          
+          // Cliente/Personal: sus reservas
+          const resR = await authenticatedRequest(`${API_BASE_URL}/api/reservas`);
+          const todasReservas = await resR.json();
+          const misReservasArr = todasReservas.filter(r => r.cliente_id === user.id);
+
+          // Traer pagos para calcular activas
+          const resP = await authenticatedRequest(`${API_BASE_URL}/api/pagos`);
+          const pagos = await resP.json();
+
+          const reservasActivas = misReservasArr.filter(r =>
+            pagos.some(p => p.reserva_id === r.id)
+          ).length;
+
+          const proximas = misReservasArr
+            .filter(r => new Date(r.fecha_inicio) > new Date())
+            .slice(0, 3);
+
           setStats({
-            misReservas: misReservas.length,
-            reservasActivas: misReservas.filter(r => r.estado === 'confirmada').length,
-            proximasReservas: misReservas
-              .filter(r => new Date(r.fechaInicio) > new Date())
-              .slice(0, 3)
+            misReservas: misReservasArr.length,
+            reservasActivas,
+            proximasReservas: proximas
           });
         }
-      } catch (error) {
-        console.error('Error al cargar dashboard:', error);
+      } catch (err) {
+        console.error('Error al cargar dashboard:', err);
+        setError('No se pudieron cargar las estadísticas');
       } finally {
         setLoading(false);
       }
@@ -58,9 +68,8 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [user, isAdmin, authenticatedRequest]);
 
-  if (loading) {
-    return <LoadingSpinner text="Cargando dashboard..." />;
-  }
+  if (loading) return <LoadingSpinner text="Cargando dashboard..." />;
+  if (error)   return <p className="text-red-600">{error}</p>;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -79,40 +88,39 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {isAdmin() ? (
             <>
+              {/* Total Reservas */}
               <div className="bg-white p-6 rounded-lg shadow-card">
                 <div className="flex items-center">
                   <div className="p-3 bg-primary-100 rounded-full">
-                    <svg className="w-6 h-6 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    {/* icono */}
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Reservas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.totalReservas || 0}</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {stats.totalReservas || 0}
+                    </p>
                   </div>
                 </div>
               </div>
-
+              {/* Reservas Hoy */}
               <div className="bg-white p-6 rounded-lg shadow-card">
                 <div className="flex items-center">
                   <div className="p-3 bg-success-100 rounded-full">
-                    <svg className="w-6 h-6 text-success-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
+                    {/* icono */}
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Reservas Hoy</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.reservasHoy || 0}</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {stats.reservasHoy || 0}
+                    </p>
                   </div>
                 </div>
               </div>
-
+              {/* Ocupación (fija o calculada aparte) */}
               <div className="bg-white p-6 rounded-lg shadow-card">
                 <div className="flex items-center">
                   <div className="p-3 bg-secondary-100 rounded-full">
-                    <svg className="w-6 h-6 text-secondary-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                    </svg>
+                    {/* icono */}
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Ocupación</p>
@@ -123,44 +131,45 @@ const Dashboard = () => {
             </>
           ) : (
             <>
+              {/* Mis Reservas */}
               <div className="bg-white p-6 rounded-lg shadow-card">
                 <div className="flex items-center">
                   <div className="p-3 bg-primary-100 rounded-full">
-                    <svg className="w-6 h-6 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    {/* icono */}
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Mis Reservas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.misReservas}</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {stats.misReservas}
+                    </p>
                   </div>
                 </div>
               </div>
-
+              {/* Activas */}
               <div className="bg-white p-6 rounded-lg shadow-card">
                 <div className="flex items-center">
                   <div className="p-3 bg-success-100 rounded-full">
-                    <svg className="w-6 h-6 text-success-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
+                    {/* icono */}
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Activas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.reservasActivas}</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {stats.reservasActivas}
+                    </p>
                   </div>
                 </div>
               </div>
-
+              {/* Próximas */}
               <div className="bg-white p-6 rounded-lg shadow-card">
                 <div className="flex items-center">
                   <div className="p-3 bg-warning-100 rounded-full">
-                    <svg className="w-6 h-6 text-warning-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                    </svg>
+                    {/* icono */}
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Próximas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.proximasReservas.length}</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {stats.proximasReservas.length}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -290,7 +299,7 @@ const Dashboard = () => {
                         {reserva.tipo === 'privada' ? 'Reserva Privada' : 'Reserva General'}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {new Date(reserva.fechaInicio).toLocaleDateString()} - {reserva.numeroPersonas} personas
+                        {new Date(reserva.fecha_inicio).toLocaleDateString()} - {reserva.numeroPersonas} personas
                       </p>
                     </div>
                     <div className="flex-shrink-0">
