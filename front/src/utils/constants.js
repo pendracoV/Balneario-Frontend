@@ -5,7 +5,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://balneario-b
 
 // Roles de usuario
 export const USER_ROLES = {
-  ADMIN: 'administrador',
+  ADMIN: 'admin',
   PERSONAL: 'personal', 
   CLIENTE: 'cliente'
 };
@@ -121,7 +121,8 @@ export const RUTAS = {
   PERFIL: '/perfil',
   ADMIN: '/admin',
   PERSONAL: '/personal',
-  ENTRADAS: '/entradas'
+  ENTRADAS: '/entradas',
+  TURNOS: '/turnos',
 };
 
 // Configuración de paginación

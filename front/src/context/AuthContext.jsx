@@ -1,215 +1,179 @@
 // src/context/AuthContext.jsx
-import { createContext, useContext, useState, useEffect } from 'react';
-import { USER_ROLES, API_BASE_URL } from '../utils/constants';
-import { jwtDecode } from 'jwt-decode'; 
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback
+} from 'react'
+import { USER_ROLES, API_BASE_URL } from '../utils/constants'
 
-
-const AuthContext = createContext();
+const AuthContext = createContext()
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe ser usado dentro de AuthProvider');
-  }
-  return context;
-};
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
+  return ctx
+}
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('authToken'));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [user, setUser]       = useState(null)
+  const [token, setToken]     = useState(localStorage.getItem('authToken'))
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
 
-  // Verificar autenticación al cargar la app
+  // función para decodificar el payload de un JWT sin librerías
+  const decodeToken = useCallback(tkn => {
+    if (!tkn) return null
+    try {
+      const payload = tkn.split('.')[1]
+      const json    = atob(payload)
+      return JSON.parse(json)
+    } catch {
+      return null
+    }
+  }, [])
+
+  // al montar, recupera de localStorage
   useEffect(() => {
-    const initializeAuth = () => {
-      const savedToken = localStorage.getItem('authToken');
-      const savedUser = localStorage.getItem('authUser');
-
-      if (savedToken && savedUser) {
-        try {
-          setToken(savedToken);
-          setUser(JSON.parse(savedUser));
-        } catch (error) {
-          console.error('Error al cargar datos de usuario:', error);
-          logout();
-        }
+    const savedToken = localStorage.getItem('authToken')
+    const savedUser  = localStorage.getItem('authUser')
+    if (savedToken && savedUser) {
+      const decoded = decodeToken(savedToken)
+      if (decoded) {
+        setToken(savedToken)
+        setUser(decoded)
+      } else {
+        // dato corrupto, limpia todo
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('authUser')
       }
-      setLoading(false);
-    };
-
-    initializeAuth();
-  }, []);
-
-  // Login
-  const login = async (credentials) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      const data = await response.json();
-      console.log('Token recibido:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error en el login');
-      }
-
-      // ✅ Decodificar token para obtener usuario
-      const decodedUser = jwtDecode(data.token);
-      console.log('Usuario decodificado:', decodedUser);
-
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('authUser', JSON.stringify(decodedUser));
-
-      setToken(data.token);
-      setUser(decodedUser);
-
-      return { success: true, user: decodedUser };
-    } catch (error) {
-      setError(error.message);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
     }
-  };
+    setLoading(false)
+  }, [decodeToken])
 
-  // Register
-  const register = async (userData) => {
+  // LOGIN
+  const login = useCallback(async credentials => {
+    setLoading(true)
+    setError(null)
     try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error en el registro');
-      }
-
-      return { success: true, message: 'Usuario registrado exitosamente' };
-    } catch (error) {
-      setError(error.message);
-      return { success: false, error: error.message };
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Error en login')
+      const decoded = decodeToken(data.token)
+      if (!decoded) throw new Error('Token inválido')
+      localStorage.setItem('authToken', data.token)
+      localStorage.setItem('authUser', JSON.stringify(decoded))
+      setToken(data.token)
+      setUser(decoded)
+      return { success: true }
+    } catch (err) {
+      setError(err.message)
+      return { success: false, error: err.message }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }, [decodeToken])
 
-  // Logout
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser');
-    setToken(null);
-    setUser(null);
-    setError(null);
-  };
-
-  // Forgot Password
-  const forgotPassword = async (email) => {
+  // REGISTER
+  const register = useCallback(async userData => {
+    setLoading(true)
+    setError(null)
     try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al enviar email de recuperación');
-      }
-
-      return { success: true, message: 'Email de recuperación enviado' };
-    } catch (error) {
-      setError(error.message);
-      return { success: false, error: error.message };
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Error en registro')
+      return { success: true }
+    } catch (err) {
+      setError(err.message)
+      return { success: false, error: err.message }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }, [])
 
-  // Reset Password
-  const resetPassword = async (resetData) => {
+  // LOGOUT
+  const logout = useCallback(() => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authUser')
+    setToken(null)
+    setUser(null)
+    setError(null)
+  }, [])
+
+  // FORGOT PASSWORD
+  const forgotPassword = useCallback(async email => {
+    setLoading(true)
+    setError(null)
     try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(resetData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al resetear contraseña');
-      }
-
-      return { success: true, message: 'Contraseña actualizada exitosamente' };
-    } catch (error) {
-      setError(error.message);
-      return { success: false, error: error.message };
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Error al enviar email')
+      return { success: true }
+    } catch (err) {
+      setError(err.message)
+      return { success: false, error: err.message }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }, [])
 
-  // Verificar roles
-  const isAdmin = () => user?.rol === USER_ROLES.ADMIN;
-  const isPersonal = () => user?.rol === USER_ROLES.PERSONAL;
-  const isCliente = () => user?.rol === USER_ROLES.CLIENTE;
-  const isAuthenticated = () => !!token && !!user;
+  // RESET PASSWORD
+  const resetPassword = useCallback(async resetData => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resetData)
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Error al resetear contraseña')
+      return { success: true }
+    } catch (err) {
+      setError(err.message)
+      return { success: false, error: err.message }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  // Hacer request autenticado
-  const authenticatedRequest = async (url, options = {}) => {
-    const config = {
-      ...options,
-      headers: {
+  // CHEQUEOS DE ROL
+  const isAdmin        = useCallback(() => user?.role === USER_ROLES.ADMIN,    [user])
+  const isPersonal     = useCallback(() => user?.role === USER_ROLES.PERSONAL, [user])
+  const isCliente      = useCallback(() => user?.role === USER_ROLES.CLIENTE,  [user])
+  const isAuthenticated = useCallback(() => !!token && !!user,                [token, user])
+
+  // FETCH autenticado
+  const authenticatedRequest = useCallback(
+    async (url, options = {}) => {
+      const headers = {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-    };
-
-    if (options.body) {
-      try {
-        console.log('Body enviado a backend:', JSON.parse(options.body));
-      } catch {
-        console.log('Body (no parseable):', options.body);
+        ...options.headers
       }
-    }
-    const response = await fetch(url, config);
-
-    if (response.status === 401) {
-      logout();
-      throw new Error('Sesión expirada');
-    }
-
-    return response;
-  };
+      const res = await fetch(url, { ...options, headers })
+      if (res.status === 401) {
+        logout()
+        throw new Error('Sesión expirada')
+      }
+      return res
+    },
+    [token, logout]
+  )
 
   const value = {
     user,
@@ -226,12 +190,12 @@ export const AuthProvider = ({ children }) => {
     isCliente,
     isAuthenticated,
     authenticatedRequest,
-    setError,
-  };
+    setError
+  }
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  );
-};
+  )
+}

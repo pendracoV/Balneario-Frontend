@@ -1,136 +1,111 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { ReservasProvider } from './context/ReservasContext';
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import { ReservasProvider }     from './context/ReservasContext'
 
-// Páginas principales
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Reservas from './pages/Reservas';
-import Perfil from './pages/Perfil';
-import NotFound from './pages/NotFound';
+// Páginas
+import Home       from './pages/Home'
+import Login      from './pages/Login'
+import Register   from './pages/Register'
+import Dashboard  from './pages/Dashboard'
+import Reservas   from './pages/Reservas'
+import Perfil     from './pages/Perfil'
+import NotFound   from './pages/NotFound'
+import TurnoForm  from './component/turno/TurnoForm'
 
-// Páginas de Admin
-//import AdminHome from './pages/Admin/AdminHome';
-//import Usuarios from './pages/Admin/Usuarios';
-//import ReservasAdmin from './pages/Admin/ReservasAdmin';
-//import Inventario from './pages/Admin/Inventario';
+// Protecciones y layout
+import ProtectedRoute from './component/common/ProtectedRoute'
+import { AdminRoute } from './component/common/AdminRoute'
+import { PersonalRoute } from './component/common/PersonalRoute'
+import Layout from './component/common/Layout'
 
-// Páginas de Personal
-//import PersonalHome from './pages/Personal/PersonalHome';
-//import VerReservasPersonal from './pages/Personal/VerReservasPersonal';
+const ReservasRoute = () => {
+  const { isAdmin, isPersonal } = useAuth()
+  if (isAdmin() || isPersonal()) {
+    return <Navigate to="/turnos" replace />
+  }
+  return (
+    <Layout>
+      <Reservas />
+    </Layout>
+  )
+}
 
-// Componentes de protección de rutas
-import ProtectedRoute from './component/common/ProtectedRoute';
-import { AdminRoute } from './component/common/AdminRoute';
-import { PersonalRoute } from './component/common/PersonalRoute';
+function AppRoutes() {
+  const { isAdmin, isPersonal } = useAuth()
 
-// Layout principal
-import Layout from './component/common/Layout';
+  return (
+    <Routes>
+      {/* Públicas */}
+      <Route path="/"        element={<Layout><Home /></Layout>} />
+      <Route path="/login"   element={<Login />} />
+      <Route path="/register"element={<Register />} />
 
-// Estilos
-import './index.css';
+      {/* Dashboard */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Layout><Dashboard /></Layout>
+          </ProtectedRoute>
+        }
+      />
 
-function App() {
+      {/* Reservas */}
+      <Route
+        path="/reservas"
+        element={
+          <ProtectedRoute>
+            <ReservasRoute />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Turnos: admin o personal */}
+      <Route
+        path="/turnos"
+        element={
+          <ProtectedRoute>
+            {isAdmin() ? (
+              <AdminRoute>
+                <Layout><TurnoForm /></Layout>
+              </AdminRoute>
+            ) : (
+              <PersonalRoute>
+                <Layout><TurnoForm /></Layout>
+              </PersonalRoute>
+            )}
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Perfil (solo clientes) */}
+      <Route
+        path="/perfil"
+        element={
+          <ProtectedRoute>
+            <Layout><Perfil /></Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 404 */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  )
+}
+
+export default function App() {
   return (
     <AuthProvider>
       <ReservasProvider>
         <Router>
           <div className="min-h-screen bg-gray-50">
-            <Routes>
-              {/* Rutas públicas */}
-              <Route path="/" element={<Layout><Home /></Layout>} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-
-              {/* Rutas protegidas - Clientes */}
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
-                    <Layout><Dashboard /></Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/reservas" 
-                element={
-                  <ProtectedRoute>
-                    <Layout><Reservas /></Layout>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/perfil" 
-                element={
-                  <ProtectedRoute>
-                    <Layout><Perfil /></Layout>
-                  </ProtectedRoute>
-                } 
-              />
-
-              {/* Rutas de Administrador */}
-              <Route 
-                path="/admin" 
-                element={
-                  <AdminRoute>
-                    <Layout></Layout>
-                  </AdminRoute>
-                } 
-              />
-              <Route 
-                path="/admin/usuarios" 
-                element={
-                  <AdminRoute>
-                    <Layout></Layout>
-                  </AdminRoute>
-                } 
-              />
-              <Route 
-                path="/admin/reservas" 
-                element={
-                  <AdminRoute>
-                    <Layout></Layout>
-                  </AdminRoute>
-                } 
-              />
-              <Route 
-                path="/admin/inventario" 
-                element={
-                  <AdminRoute>
-                    <Layout></Layout>
-                  </AdminRoute>
-                } 
-              />
-
-              {/* Rutas de Personal */}
-              <Route 
-                path="/personal" 
-                element={
-                  <PersonalRoute>
-                    <Layout></Layout>
-                  </PersonalRoute>
-                } 
-              />
-              <Route 
-                path="/personal/reservas" 
-                element={
-                  <PersonalRoute>
-                    <Layout></Layout>
-                  </PersonalRoute>
-                } 
-              />
-
-              {/* Ruta 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AppRoutes />
           </div>
         </Router>
       </ReservasProvider>
     </AuthProvider>
-  );
+  )
 }
-
-export default App;
